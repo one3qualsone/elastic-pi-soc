@@ -15,9 +15,8 @@ volumes:
     driver: local
 
 networks:
-  default:
-    name: elastic
-    external: false
+  elastic:
+    driver: bridge
 
 services:
   setup:
@@ -25,6 +24,8 @@ services:
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
     user: "0"
+    networks:
+      - elastic
     command: >
       bash -c '
         if [ x${ELASTIC_PASSWORD} == x ]; then
@@ -85,6 +86,8 @@ services:
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
+    networks:
+      - elastic
     ports:
       - ${ES_PORT}:9200
     environment:
@@ -129,6 +132,8 @@ services:
     volumes:
       - certs:/usr/share/kibana/config/certs
       - kibanadata:/usr/share/kibana/data
+    networks:
+      - elastic
     ports:
       - ${KIBANA_PORT}:5601
     environment:
@@ -167,6 +172,8 @@ services:
       - "/sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro"
       - "/proc:/hostfs/proc:ro"
       - "/:/hostfs:ro"
+    networks:
+      - elastic
     environment:
       - ELASTIC_USER=elastic
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
@@ -189,6 +196,8 @@ services:
       - "./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro"
       - "/var/lib/docker/containers:/var/lib/docker/containers:ro"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      - elastic
     environment:
       - ELASTIC_USER=elastic
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
@@ -213,6 +222,8 @@ services:
       - logstashdata01:/usr/share/logstash/data
       - "./logstash_ingest_data/:/usr/share/logstash/ingest_data/"
       - "./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro"
+    networks:
+      - elastic
     environment:
       - xpack.monitoring.enabled=false
       - ELASTIC_USER=elastic

@@ -15,9 +15,8 @@ volumes:
     driver: local
 
 networks:
-  default:
-    name: elastic
-    external: false
+  elastic:
+    driver: bridge
 
 services:
   setup:
@@ -26,6 +25,8 @@ services:
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
     user: "0"
+    networks:
+      - elastic
     command: >
       bash -c '
         if [ x${ELASTIC_PASSWORD} == x ]; then
@@ -65,9 +66,9 @@ services:
         find . -type d -exec chmod 750 \{\} \;;
         find . -type f -exec chmod 640 \{\} \;;
         echo "Waiting for Elasticsearch availability";
-        until curl -s --cacert config/certs/ca/ca.crt https://es01:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
+        until curl -s --cacert config/certs/ca/ca.crt https://es01:9200 | grep -q "missing authentication credentials"; do sleep 5; done;
         echo "Setting kibana_system password";
-        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
+        until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 5; done;
         echo "All done!";
       '
     healthcheck:
@@ -82,11 +83,16 @@ services:
         condition: service_healthy
     platform: linux/arm64
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    hostname: es01
     labels:
       co.elastic.logs/module: elasticsearch
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
+    networks:
+      elastic:
+        aliases:
+          - es01
     ports:
       - ${ES_PORT}:9200
     environment:
@@ -106,6 +112,7 @@ services:
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
       - xpack.license.self_generated.type=${LICENSE}
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     mem_limit: ${ES_MEM_LIMIT}
     ulimits:
       memlock:
@@ -127,11 +134,16 @@ services:
         condition: service_healthy
     platform: linux/arm64
     image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+    hostname: kibana
     labels:
       co.elastic.logs/module: kibana
     volumes:
       - certs:/usr/share/kibana/config/certs
       - kibanadata:/usr/share/kibana/data
+    networks:
+      elastic:
+        aliases:
+          - kibana
     ports:
       - ${KIBANA_PORT}:5601
     environment:
@@ -143,6 +155,7 @@ services:
       - XPACK_SECURITY_ENCRYPTIONKEY=${ENCRYPTION_KEY}
       - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${ENCRYPTION_KEY}
       - XPACK_REPORTING_ENCRYPTIONKEY=${ENCRYPTION_KEY}
+      - XPACK_SECURITY_SECURECOOKIES=false
     mem_limit: ${KB_MEM_LIMIT}
     healthcheck:
       test:
@@ -162,6 +175,7 @@ services:
         condition: service_healthy
     platform: linux/arm64
     image: docker.elastic.co/beats/metricbeat:${STACK_VERSION}
+    hostname: metricbeat01
     user: root
     volumes:
       - certs:/usr/share/metricbeat/certs
@@ -171,6 +185,10 @@ services:
       - "/sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro"
       - "/proc:/hostfs/proc:ro"
       - "/:/hostfs:ro"
+    networks:
+      elastic:
+        aliases:
+          - metricbeat01
     environment:
       - ELASTIC_USER=elastic
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
@@ -186,6 +204,7 @@ services:
         condition: service_healthy
     platform: linux/arm64
     image: docker.elastic.co/beats/filebeat:${STACK_VERSION}
+    hostname: filebeat01
     user: root
     volumes:
       - certs:/usr/share/filebeat/certs
@@ -194,6 +213,10 @@ services:
       - "./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro"
       - "/var/lib/docker/containers:/var/lib/docker/containers:ro"
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
+    networks:
+      elastic:
+        aliases:
+          - filebeat01
     environment:
       - ELASTIC_USER=elastic
       - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
@@ -211,6 +234,7 @@ services:
         condition: service_healthy
     platform: linux/arm64
     image: docker.elastic.co/logstash/logstash:${STACK_VERSION}
+    hostname: logstash01
     labels:
       co.elastic.logs/module: logstash
     user: root
@@ -219,6 +243,10 @@ services:
       - logstashdata01:/usr/share/logstash/data
       - "./logstash_ingest_data/:/usr/share/logstash/ingest_data/"
       - "./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro"
+    networks:
+      elastic:
+        aliases:
+          - logstash01
     environment:
       - xpack.monitoring.enabled=false
       - ELASTIC_USER=elastic
