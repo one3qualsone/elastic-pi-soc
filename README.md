@@ -1,63 +1,38 @@
-# Elastic Pi Security SOC
+# Getting started with the Elastic Stack and Docker Compose: Part 2
+## Elastic Agent, Fleet, and Elastic APM
 
-This project sets up a home security monitoring system using the Elastic Stack (Elasticsearch, Kibana, and Beats) on either a Raspberry Pi or standard x86 Ubuntu server.
+This repo is in reference to the blog [Getting Started with the Elastic Stack and Docker Compose: Part 2](https://www.elastic.co/blog/getting-started-with-the-elastic-stack-and-docker-compose-part-2)
 
-## Files Included
+You can read the first blog: [Getting Started with the Elastic Stack and Docker Compose](https://www.elastic.co/blog/getting-started-with-the-elastic-stack-and-docker-compose) or visit it's [GitHub repo](https://github.com/elkninja/elastic-stack-docker-part-one)
 
-1. `docker-compose-x86.yml` - Docker Compose configuration for x86_64 (Ubuntu) systems
-2. `docker-compose-arm.yml` - Docker Compose configuration for ARM64 (Raspberry Pi) systems
-3. `env-sample.env` - Sample environment variables file
-4. `setup.sh` - Setup script that detects your architecture and sets up the system
-5. `config/packetbeat/packetbeat.yml` - Configuration for network packet monitoring
+Please feel free to ask any questions via issues [here](https://github.com/elkninja/elastic-stack-docker-part-two/issues), our [Community Slack](https://ela.st/slack), or over in our [Discuss Forums](https://discuss.elastic.co/).
 
-## Quick Start
+Pull Requests welcome :)
 
-1. Clone this repository
-2. Run the setup script:
-   ```
-   chmod +x setup.sh
-   ./setup.sh
-   ```
-3. Access Kibana at `https://your-ip:5601`
-   - Username: `elastic`
-   - Password: `changeme` (or the password you set in .env)
+ 
+## Resources:
+### Fleet/Agent
 
-## Requirements
+Overview: https://www.elastic.co/guide/en/fleet/current/fleet-overview.html
 
-- Docker and Docker Compose
-- Raspberry Pi with at least 4GB RAM (8GB recommended) or Ubuntu server
-- At least 32GB free disk space (64GB+ recommended)
+Policy Creation, No UI: https://www.elastic.co/guide/en/fleet/current/create-a-policy-no-ui.html
 
-## Configuration
+Adding Fleet On-Prem: https://www.elastic.co/guide/en/fleet/current/add-fleet-server-on-prem.html
 
-You can modify the `.env` file to change:
-- Stack version
-- Memory limits
-- Passwords
-- Port mappings
-- License type
+Agent in a Container: https://www.elastic.co/guide/en/fleet/current/elastic-agent-container.html
 
-## Architecture
+Air Gapped: https://www.elastic.co/guide/en/fleet/current/air-gapped.html
 
-This setup includes:
-- Elasticsearch - The search and analytics engine
-- Kibana - The visualization dashboard
-- Packetbeat - Network packet analyzer for security monitoring
+Secure Fleet: https://www.elastic.co/guide/en/fleet/current/secure-connections.html
 
-All communications are secured with SSL/TLS using self-signed certificates.
+### APM:
 
-## Troubleshooting
+APM:
+https://www.elastic.co/guide/en/apm/guide/current/upgrade-to-apm-integration.html
 
-If you encounter issues:
-1. Check the logs: `docker-compose logs`
-2. Verify memory settings in .env
-3. Ensure Docker has adequate permissions
-4. Check your firewall settings
+On Prem: https://www.elastic.co/guide/en/apm/guide/current/apm-integration-upgrade-steps.html
 
-## Development vs. Production
+Fleet-Managed: https://www.elastic.co/guide/en/fleet/8.8/install-fleet-managed-elastic-agent.html
 
-The x86 configuration is ideal for development, while the ARM configuration is optimized for running on a Raspberry Pi in production.
-
-## License
-
-This project uses the Elastic Stack which is licensed under the Elastic License for the commercial features.
+Queue Full Error:
+https://www.elastic.co/guide/en/apm/server/current/common-problems.html#queue-full
