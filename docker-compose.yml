@@ -1,0 +1,184 @@
+version: '3'
+
+services:
+  # Create certificates first using Alpine (ARM compatible)
+  setup:
+    image: arm64v8/alpine:latest
+    container_name: es-setup
+    volumes:
+      - ./config:/config
+    user: "0"
+    command: >
+      sh -c '
+        # Install required packages
+        apk add --no-cache openssl curl
+        
+        mkdir -p /config/certs/ca
+        mkdir -p /config/certs/es01
+        mkdir -p /config/certs/es02
+        mkdir -p /config/certs/kibana
+        
+        # Create CA
+        if [ ! -f /config/certs/ca/ca.crt ]; then
+          echo "Creating CA certificates..."
+          openssl req -new -x509 -days 3650 -nodes \
+            -subj "/C=US/ST=State/L=City/O=Organization/CN=Elastic CA" \
+            -keyout /config/certs/ca/ca.key -out /config/certs/ca/ca.crt
+          
+          # Create node certificates
+          for node in es01 es02 kibana; do
+            echo "Creating certificate for $node..."
+            openssl req -new -nodes \
+              -subj "/C=US/ST=State/L=City/O=Organization/CN=$node" \
+              -keyout /config/certs/$node/$node.key -out /config/certs/$node/$node.csr
+              
+            openssl x509 -req -days 3650 -in /config/certs/$node/$node.csr \
+              -CA /config/certs/ca/ca.crt -CAkey /config/certs/ca/ca.key -CAcreateserial \
+              -out /config/certs/$node/$node.crt
+              
+            # Copy CA certificate for convenience
+            cp /config/certs/ca/ca.crt /config/certs/$node/
+            
+            # Set permissions
+            chmod 644 /config/certs/$node/$node.crt
+            chmod 600 /config/certs/$node/$node.key
+          done
+          
+          chmod -R 777 /config/certs
+          echo "Certificates created successfully!"
+        else
+          echo "Certificates already exist, skipping generation."
+        fi
+      '
+    networks:
+      - elastic
+
+  # First Elasticsearch node - using the ARM compatible version
+  es01:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.7.1-arm64
+    container_name: es01
+    restart: unless-stopped
+    volumes:
+      - ./config/certs/es01:/usr/share/elasticsearch/config/certs
+      - ./config/certs/ca:/usr/share/elasticsearch/config/ca
+      - es01-data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    environment:
+      - node.name=es01
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es02
+      - cluster.initial_master_nodes=es01,es02
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/es01.key
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/es01.crt
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/ca/ca.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certs/es01.key
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certs/es01.crt
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/ca/ca.crt
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.license.self_generated.type=basic
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - elastic
+    depends_on:
+      - setup
+
+  # Second Elasticsearch node
+  es02:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.7.1-arm64
+    container_name: es02
+    restart: unless-stopped
+    volumes:
+      - ./config/certs/es02:/usr/share/elasticsearch/config/certs
+      - ./config/certs/ca:/usr/share/elasticsearch/config/ca
+      - es02-data:/usr/share/elasticsearch/data
+    environment:
+      - node.name=es02
+      - cluster.name=es-docker-cluster
+      - discovery.seed_hosts=es01
+      - cluster.initial_master_nodes=es01,es02
+      - bootstrap.memory_lock=true
+      - xpack.security.enabled=true
+      - xpack.security.http.ssl.enabled=true
+      - xpack.security.http.ssl.key=/usr/share/elasticsearch/config/certs/es02.key
+      - xpack.security.http.ssl.certificate=/usr/share/elasticsearch/config/certs/es02.crt
+      - xpack.security.http.ssl.certificate_authorities=/usr/share/elasticsearch/config/ca/ca.crt
+      - xpack.security.transport.ssl.enabled=true
+      - xpack.security.transport.ssl.key=/usr/share/elasticsearch/config/certs/es02.key
+      - xpack.security.transport.ssl.certificate=/usr/share/elasticsearch/config/certs/es02.crt
+      - xpack.security.transport.ssl.certificate_authorities=/usr/share/elasticsearch/config/ca/ca.crt
+      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.license.self_generated.type=basic
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    networks:
+      - elastic
+    depends_on:
+      - es01
+
+  # Kibana
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.7.1-arm64
+    container_name: kibana
+    restart: unless-stopped
+    volumes:
+      - ./config/certs/kibana:/usr/share/kibana/config/certs
+      - ./config/certs/ca:/usr/share/kibana/config/ca
+    ports:
+      - "5601:5601"
+    environment:
+      - SERVERNAME=kibana
+      - ELASTICSEARCH_HOSTS=https://es01:9200
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=changeme
+      - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/ca/ca.crt
+      - SERVER_SSL_ENABLED=true
+      - SERVER_SSL_CERTIFICATE=/usr/share/kibana/config/certs/kibana.crt
+      - SERVER_SSL_KEY=/usr/share/kibana/config/certs/kibana.key
+    networks:
+      - elastic
+    depends_on:
+      - es01
+
+  # Network monitoring with packetbeat (ARM compatible)
+  packetbeat:
+    image: docker.elastic.co/beats/packetbeat:8.7.1-arm64
+    container_name: packetbeat
+    user: root
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    network_mode: host
+    volumes:
+      - ./config/packetbeat/packetbeat.yml:/usr/share/packetbeat/packetbeat.yml:ro
+      - ./config/certs/ca:/usr/share/packetbeat/certs/ca
+    environment:
+      - ELASTICSEARCH_HOSTS=https://localhost:9200
+      - ELASTICSEARCH_USERNAME=elastic
+      - ELASTICSEARCH_PASSWORD=changeme
+      - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/packetbeat/certs/ca/ca.crt
+    command: -e -strict.perms=false
+    restart: unless-stopped
+    depends_on:
+      - es01
+
+volumes:
+  es01-data:
+    driver: local
+  es02-data:
+    driver: local
+
+networks:
+  elastic:
+    driver: bridge
