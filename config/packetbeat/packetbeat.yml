@@ -24,6 +24,6 @@ processors:
 
 output.elasticsearch:
   hosts: ['https://localhost:9200']
-  username: 'elastic'
-  password: 'changeme'
+  username: '${ELASTIC_USER}'
+  password: '${ELASTIC_PASSWORD}'
   ssl.certificate_authorities: ['/usr/share/packetbeat/certs/ca/ca.crt']

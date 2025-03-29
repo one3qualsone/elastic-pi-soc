@@ -1,77 +1,116 @@
 #!/bin/bash
 
-# Elastic Stack on Raspberry Pi Setup Script
+# Color definitions
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to print colored messages
+print_message() {
+    echo -e "${2}${1}${NC}"
+}
 
 # Create necessary directories
-echo "Creating directory structure..."
-mkdir -p ./config/certs/ca
-mkdir -p ./config/certs/es01
-mkdir -p ./config/certs/es02
-mkdir -p ./config/certs/kibana
+print_message "Creating directory structure..." "$BLUE"
 mkdir -p ./config/packetbeat
 
-# Check for Docker
+# Check if docker is installed
 if ! command -v docker &> /dev/null; then
-    echo "Docker is not installed. Installing Docker..."
+    print_message "Docker is not installed. Installing Docker..." "$YELLOW"
     curl -sSL https://get.docker.com | sh
     sudo usermod -aG docker $USER
-    echo "You may need to log out and back in for group changes to take effect."
+    print_message "You may need to log out and back in for group changes to take effect." "$YELLOW"
     exit 1
 fi
 
-# Ensure user is in docker group
-if ! groups | grep -q docker; then
-    echo "Your user is not in the docker group. Try restarting your session or run:"
-    echo "  sudo usermod -aG docker $USER"
-    echo "  newgrp docker"
+# Check if docker-compose is installed
+if ! command -v docker-compose &> /dev/null; then
+    print_message "docker-compose is not installed. Please install it first." "$RED"
+    print_message "For Ubuntu: sudo apt install docker-compose" "$YELLOW"
+    print_message "For Raspberry Pi: sudo apt install docker-compose-plugin" "$YELLOW"
     exit 1
 fi
 
-# First run setup container only to generate certificates
-echo "Generating certificates..."
-docker-compose up setup
-
-# Check if certificates were generated
-if [ ! -f ./config/certs/es01/es01.crt ]; then
-    echo "Certificate generation failed. Please check the output for errors."
+# Detect architecture and choose appropriate compose file
+ARCH=$(uname -m)
+if [ "$ARCH" = "x86_64" ]; then
+    print_message "Detected x86_64 architecture (standard PC/server)" "$GREEN"
+    cp docker-compose.yml docker-compose.yml.bak
+    cp docker-compose-x86.yml docker-compose.yml
+    print_message "Using standard x86_64 Docker images" "$BLUE"
+elif [ "$ARCH" = "aarch64" ] || [ "$ARCH" = "arm64" ]; then
+    print_message "Detected ARM64 architecture (Raspberry Pi)" "$GREEN"
+    cp docker-compose.yml docker-compose.yml.bak
+    cp docker-compose-arm.yml docker-compose.yml
+    print_message "Using ARM64 Docker images" "$BLUE"
+else
+    print_message "Unsupported architecture: $ARCH" "$RED"
+    print_message "This script supports x86_64 and arm64/aarch64 only." "$RED"
     exit 1
 fi
 
-echo "Certificates generated successfully."
+# Check if environment variables are set
+if [ ! -f .env ]; then
+    print_message "No .env file found, creating default .env file..." "$BLUE"
+    cp env-sample.env .env
+    print_message "Default .env file created. Review and modify if needed." "$YELLOW"
+fi
 
-# Start the entire stack
-echo "Starting Elastic Stack..."
+# Copy the packetbeat config
+mkdir -p config/packetbeat
+if [ ! -f config/packetbeat/packetbeat.yml ]; then
+    cp packetbeat-config.yml config/packetbeat/packetbeat.yml
+fi
+
+# Start the stack
+print_message "Starting Elastic Stack..." "$BLUE"
+docker-compose down -v
 docker-compose up -d
 
-# Give Elasticsearch time to start
-echo "Waiting for Elasticsearch to start (this may take a few minutes)..."
+print_message "Waiting for setup to complete (this may take a few minutes)..." "$YELLOW"
 for i in {1..30}; do
-    if docker ps | grep -q es01; then
-        # Check if Elasticsearch is responding
-        if docker exec es01 curl -s --cacert /usr/share/elasticsearch/config/ca/ca.crt https://localhost:9200 -u elastic:changeme > /dev/null; then
-            echo "Elasticsearch is running!"
-            break
-        fi
+    if docker-compose ps | grep -q "setup.*Exit 0"; then
+        print_message "Setup completed successfully!" "$GREEN"
+        break
+    fi
+    if docker-compose ps | grep -q "setup.*Exit [1-9]"; then
+        print_message "Setup failed. Checking logs:" "$RED"
+        docker-compose logs setup
+        exit 1
     fi
     echo -n "."
     sleep 10
     if [ $i -eq 30 ]; then
-        echo "Elasticsearch did not start in time. Check the logs with: docker-compose logs es01"
+        print_message "\nSetup is taking longer than expected. Check the logs with: docker-compose logs setup" "$YELLOW"
     fi
 done
 
-# Set elastic password
-echo -e "\nSetting up elastic user password..."
-docker exec -it es01 /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i
+# Wait for Elasticsearch to be ready
+print_message "Waiting for Elasticsearch to be ready..." "$YELLOW"
+for i in {1..30}; do
+    if docker-compose ps | grep -q "es01.*healthy"; then
+        print_message "Elasticsearch is running!" "$GREEN"
+        break
+    fi
+    echo -n "."
+    sleep 10
+    if [ $i -eq 30 ]; then
+        print_message "\nElasticsearch is taking longer than expected. Check the logs with: docker-compose logs es01" "$YELLOW"
+    fi
+done
 
 # Set kibana_system password
-echo "Setting kibana_system password to 'changeme'..."
-docker exec es01 /usr/share/elasticsearch/bin/elasticsearch-reset-password -u kibana_system -a -b -p changeme
+print_message "Setting kibana_system password..." "$BLUE"
+docker-compose exec -T es01 bash -c "bin/elasticsearch-reset-password -u kibana_system -b -p ${KIBANA_PASSWORD:-changeme}"
 
-echo -e "\nSetup complete! Access information:"
-echo "Kibana: https://$(hostname -I | awk '{print $1}'):5601"
-echo "Elasticsearch: https://$(hostname -I | awk '{print $1}'):9200"
-echo "Username: elastic"
-echo "Password: (the one you just set)"
-echo -e "\nTo check the status of your containers, run: docker-compose ps"
-echo "To view logs, run: docker-compose logs -f"
+# Print access information
+print_message "\nElastic Stack setup complete!" "$GREEN"
+print_message "Kibana: https://$(hostname -I | awk '{print $1}'):5601" "$YELLOW"
+print_message "Elasticsearch: https://$(hostname -I | awk '{print $1}'):9200" "$YELLOW"
+print_message "Username: elastic" "$YELLOW"
+print_message "Password: ${ELASTIC_PASSWORD:-changeme}" "$YELLOW"
+print_message "\nTo check the status of your containers, run: docker-compose ps" "$BLUE"
+print_message "To view logs, run: docker-compose logs -f" "$BLUE"
+print_message "\nNote: You'll need to accept the self-signed certificate in your browser when accessing Kibana." "$YELLOW"

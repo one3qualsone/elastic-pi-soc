@@ -17,7 +17,7 @@ networks:
 
 services:
   setup:
-    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}-arm64
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
     user: "0"
@@ -71,7 +71,7 @@ services:
     depends_on:
       setup:
         condition: service_healthy
-    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}-arm64
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
@@ -94,6 +94,7 @@ services:
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
       - xpack.license.self_generated.type=${LICENSE}
+      - ES_JAVA_OPTS=-Xms256m -Xmx256m
     mem_limit: ${ES_MEM_LIMIT}
     ulimits:
       memlock:
@@ -113,7 +114,7 @@ services:
     depends_on:
       es01:
         condition: service_healthy
-    image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
+    image: docker.elastic.co/kibana/kibana:${STACK_VERSION}-arm64
     volumes:
       - certs:/usr/share/kibana/config/certs
       - kibanadata:/usr/share/kibana/data
@@ -143,7 +144,7 @@ services:
     depends_on:
       es01:
         condition: service_healthy
-    image: docker.elastic.co/beats/packetbeat:${STACK_VERSION}
+    image: docker.elastic.co/beats/packetbeat:${STACK_VERSION}-arm64
     user: root
     cap_add:
       - NET_ADMIN
