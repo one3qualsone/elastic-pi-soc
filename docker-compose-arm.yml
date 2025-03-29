@@ -20,7 +20,7 @@ networks:
 
 services:
   setup:
-    platform: linux/arm/v8
+    platform: linux/arm64
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
@@ -81,7 +81,7 @@ services:
     depends_on:
       setup:
         condition: service_healthy
-    platform: linux/arm/v8
+    platform: linux/arm64
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     hostname: es01
     labels:
@@ -132,7 +132,7 @@ services:
     depends_on:
       es01:
         condition: service_healthy
-    platform: linux/arm/v8
+    platform: linux/arm64
     image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
     hostname: kibana
     labels:
@@ -173,7 +173,7 @@ services:
         condition: service_healthy
       kibana:
         condition: service_healthy
-    platform: linux/arm/v8
+    platform: linux/arm64
     image: docker.elastic.co/beats/metricbeat:${STACK_VERSION}
     hostname: metricbeat01
     user: root
@@ -202,7 +202,7 @@ services:
     depends_on:
       es01:
         condition: service_healthy
-    platform: linux/arm/v8
+    platform: linux/arm64
     image: docker.elastic.co/beats/filebeat:${STACK_VERSION}
     hostname: filebeat01
     user: root
@@ -232,7 +232,7 @@ services:
         condition: service_healthy
       kibana:
         condition: service_healthy
-    platform: linux/arm/v8
+    platform: linux/arm64
     image: docker.elastic.co/logstash/logstash:${STACK_VERSION}
     hostname: logstash01
     labels:
