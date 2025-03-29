@@ -28,6 +28,18 @@ services:
       - elastic
     command: >
       bash -c '
+        echo "Checking environment variables..."
+        echo "ELASTIC_PASSWORD value length: ${#ELASTIC_PASSWORD}"
+        echo "KIBANA_PASSWORD value length: ${#KIBANA_PASSWORD}"
+        
+        if [ -z "$ELASTIC_PASSWORD" ]; then
+          echo "Error: ELASTIC_PASSWORD is not set or empty";
+          exit 1;
+        elif [ -z "$KIBANA_PASSWORD" ]; then
+          echo "Error: KIBANA_PASSWORD is not set or empty";
+          exit 1;
+        fi;
+        
         if [ x${ELASTIC_PASSWORD} == x ]; then
           echo "Set the ELASTIC_PASSWORD environment variable in the .env file";
           exit 1;
