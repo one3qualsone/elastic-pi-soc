@@ -5,9 +5,6 @@ server.maxPayloadBytes: 1048576
 telemetry.enabled: false
 telemetry.optIn: false
 
-# Reduce resource usage for Raspberry Pi
-node.options: ["--max-old-space-size=512"]
-
 # Core features needed
 xpack.security.enabled: true
 xpack.fleet.enabled: true
