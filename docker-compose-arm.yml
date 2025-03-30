@@ -7,11 +7,7 @@ volumes:
     driver: local
   kibanadata:
     driver: local
-  metricbeatdata01:
-    driver: local
-  filebeatdata01:
-    driver: local
-  logstashdata01:
+  fleetserverdata:
     driver: local
 
 networks:
@@ -57,6 +53,12 @@ services:
           "      - localhost\n"\
           "    ip:\n"\
           "      - 127.0.0.1\n"\
+          "  - name: fleet-server\n"\
+          "    dns:\n"\
+          "      - fleet-server\n"\
+          "      - localhost\n"\
+          "    ip:\n"\
+          "      - 127.0.0.1\n"\
           > config/certs/instances.yml;
           bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
           unzip config/certs/certs.zip -d config/certs;
@@ -83,16 +85,11 @@ services:
         condition: service_healthy
     platform: linux/arm64
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
-    hostname: es01
-    labels:
-      co.elastic.logs/module: elasticsearch
     volumes:
       - certs:/usr/share/elasticsearch/config/certs
       - esdata01:/usr/share/elasticsearch/data
     networks:
-      elastic:
-        aliases:
-          - es01
+      - elastic
     ports:
       - ${ES_PORT}:9200
     environment:
@@ -112,8 +109,7 @@ services:
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
       - xpack.security.transport.ssl.verification_mode=certificate
       - xpack.license.self_generated.type=${LICENSE}
-      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
-    mem_limit: ${ES_MEM_LIMIT}
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
     ulimits:
       memlock:
         soft: -1
@@ -134,16 +130,11 @@ services:
         condition: service_healthy
     platform: linux/arm64
     image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
-    hostname: kibana
-    labels:
-      co.elastic.logs/module: kibana
     volumes:
       - certs:/usr/share/kibana/config/certs
       - kibanadata:/usr/share/kibana/data
     networks:
-      elastic:
-        aliases:
-          - kibana
+      - elastic
     ports:
       - ${KIBANA_PORT}:5601
     environment:
@@ -155,8 +146,7 @@ services:
       - XPACK_SECURITY_ENCRYPTIONKEY=${ENCRYPTION_KEY}
       - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${ENCRYPTION_KEY}
       - XPACK_REPORTING_ENCRYPTIONKEY=${ENCRYPTION_KEY}
-      - XPACK_SECURITY_SECURECOOKIES=false
-    mem_limit: ${KB_MEM_LIMIT}
+      - NODE_OPTIONS="--max-old-space-size=512"
     healthcheck:
       test:
         [
@@ -167,88 +157,36 @@ services:
       timeout: 10s
       retries: 120
 
-  metricbeat01:
+  fleet-server:
     depends_on:
-      es01:
-        condition: service_healthy
       kibana:
         condition: service_healthy
-    platform: linux/arm64
-    image: docker.elastic.co/beats/metricbeat:${STACK_VERSION}
-    hostname: metricbeat01
-    user: root
-    volumes:
-      - certs:/usr/share/metricbeat/certs
-      - metricbeatdata01:/usr/share/metricbeat/data
-      - "./metricbeat.yml:/usr/share/metricbeat/metricbeat.yml:ro"
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
-      - "/sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro"
-      - "/proc:/hostfs/proc:ro"
-      - "/:/hostfs:ro"
-    networks:
-      elastic:
-        aliases:
-          - metricbeat01
-    environment:
-      - ELASTIC_USER=elastic
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-      - ELASTIC_HOSTS=https://es01:9200
-      - KIBANA_HOSTS=http://kibana:5601
-      - LOGSTASH_HOSTS=http://logstash01:9600
-    command:
-      - --strict.perms=false
-
-  filebeat01:
-    depends_on:
       es01:
         condition: service_healthy
     platform: linux/arm64
-    image: docker.elastic.co/beats/filebeat:${STACK_VERSION}
-    hostname: filebeat01
-    user: root
+    image: docker.elastic.co/beats/elastic-agent:${STACK_VERSION}
     volumes:
-      - certs:/usr/share/filebeat/certs
-      - filebeatdata01:/usr/share/filebeat/data
-      - "./filebeat_ingest_data/:/usr/share/filebeat/ingest_data/"
-      - "./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro"
-      - "/var/lib/docker/containers:/var/lib/docker/containers:ro"
-      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - certs:/usr/share/elastic-agent/certs
+      - fleetserverdata:/usr/share/elastic-agent/data
     networks:
-      elastic:
-        aliases:
-          - filebeat01
-    environment:
-      - ELASTIC_USER=elastic
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-      - ELASTIC_HOSTS=https://es01:9200
-      - KIBANA_HOSTS=http://kibana:5601
-      - LOGSTASH_HOSTS=http://logstash01:9600
-    command:
-      - --strict.perms=false
-
-  logstash01:
-    depends_on:
-      es01:
-        condition: service_healthy
-      kibana:
-        condition: service_healthy
-    platform: linux/arm64
-    image: docker.elastic.co/logstash/logstash:${STACK_VERSION}
-    hostname: logstash01
-    labels:
-      co.elastic.logs/module: logstash
+      - elastic
+    ports:
+      - ${FLEET_PORT}:8220
     user: root
-    volumes:
-      - certs:/usr/share/logstash/certs
-      - logstashdata01:/usr/share/logstash/data
-      - "./logstash_ingest_data/:/usr/share/logstash/ingest_data/"
-      - "./logstash.conf:/usr/share/logstash/pipeline/logstash.conf:ro"
-    networks:
-      elastic:
-        aliases:
-          - logstash01
+    restart: on-failure
     environment:
-      - xpack.monitoring.enabled=false
-      - ELASTIC_USER=elastic
-      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
-      - ELASTIC_HOSTS=https://es01:9200
+      - FLEET_SERVER_ENABLE=1
+      - FLEET_SERVER_ELASTICSEARCH_HOST=https://es01:9200
+      - FLEET_SERVER_ELASTICSEARCH_USERNAME=elastic
+      - FLEET_SERVER_ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+      - FLEET_SERVER_ELASTICSEARCH_CA=/usr/share/elastic-agent/certs/ca/ca.crt
+      - FLEET_SERVER_ELASTICSEARCH_INSECURE=false
+      - FLEET_SERVER_INSECURE_HTTP=false
+      - FLEET_SERVER_HOST=0.0.0.0
+      - FLEET_SERVER_PORT=8220
+      - FLEET_SERVER_CERT=/usr/share/elastic-agent/certs/fleet-server/fleet-server.crt
+      - FLEET_SERVER_CERT_KEY=/usr/share/elastic-agent/certs/fleet-server/fleet-server.key
+      - KIBANA_FLEET_SETUP=1
+      - KIBANA_FLEET_USERNAME=elastic
+      - KIBANA_FLEET_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_HOST=http://kibana:5601
