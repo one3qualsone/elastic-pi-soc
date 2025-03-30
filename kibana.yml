@@ -1,3 +1,23 @@
 server.host: "0.0.0.0"
+server.maxPayloadBytes: 1048576
+
+# Disable telemetry for performance
+telemetry.enabled: false
+telemetry.optIn: false
+
+# Reduce resource usage for Raspberry Pi
+node.options: ["--max-old-space-size=512"]
+
+# Core features needed
 xpack.security.enabled: true
 xpack.fleet.enabled: true
+
+# Optional: Disable features to save resources
+xpack.reporting.enabled: false
+xpack.grokdebugger.enabled: false
+xpack.maps.enabled: false
+xpack.ml.enabled: false
+xpack.transform.enabled: false
+
+# Properly disable console (this is the correct way in 8.17.x)
+xpack.console.enabled: false
