@@ -1,11 +1,10 @@
+elastic:
+  apm:
+    active: true
+    serverUrl: "http://fleet-server:8200"
+    secretToken: ${ELASTIC_APM_SECRET_TOKEN}
 server.host: "0.0.0.0"
-server.maxPayloadBytes: 1048576
-
-# Configure Fleet 
-xpack.fleet.enabled: true
-xpack.fleet.registryUrl: "https://epr.elastic.co"
-
-# Configure Fleet packages and policies
+telemetry.enabled: "true"
 xpack.fleet.packages:
   - name: fleet_server
     version: latest
@@ -13,7 +12,8 @@ xpack.fleet.packages:
     version: latest
   - name: elastic_agent
     version: latest
-
+  - name: apm
+    version: latest
 xpack.fleet.agentPolicies:
   - name: Fleet-Server-Policy
     id: fleet-server-policy
@@ -31,10 +31,14 @@ xpack.fleet.agentPolicies:
       - name: elastic_agent-1
         package:
           name: elastic_agent
-
-# Reduce resource usage
-xpack.reporting.enabled: false
-xpack.grokdebugger.enabled: false
-xpack.maps.enabled: false
-xpack.ml.enabled: false
-xpack.transform.enabled: false
+      - name: apm-1
+        package:
+          name: apm
+        inputs:
+        - type: apm
+          enabled: true
+          vars:
+          - name: host
+            value: 0.0.0.0:8200
+          - name: secret_token
+            value: ${ELASTIC_APM_SECRET_TOKEN}
