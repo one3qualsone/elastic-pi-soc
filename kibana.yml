@@ -1,28 +1,18 @@
 server.host: "0.0.0.0"
-telemetry.enabled: true
+server.maxPayloadBytes: 1048576
 
-xpack.fleet.packages:
-  - name: fleet_server
-    version: latest
-  - name: system
-    version: latest
-  - name: elastic_agent
-    version: latest
+# Disable telemetry for performance
+telemetry.enabled: false
+telemetry.optIn: false
 
-xpack.fleet.agentPolicies:
-  - name: Fleet-Server-Policy
-    id: fleet-server-policy
-    namespace: default
-    monitoring_enabled: 
-      - logs
-      - metrics
-    package_policies:
-      - name: fleet_server-1
-        package:
-          name: fleet_server
-      - name: system-1
-        package:
-          name: system
-      - name: elastic_agent-1
-        package:
-          name: elastic_agent
+# Reduce resource usage
+xpack.reporting.enabled: false
+xpack.grokdebugger.enabled: false
+xpack.maps.enabled: false
+xpack.ml.enabled: false
+xpack.transform.enabled: false
+console.enabled: false
+
+# Only enable the basic features we need
+xpack.fleet.enabled: true
+xpack.security.enabled: true
