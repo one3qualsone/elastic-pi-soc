@@ -1,5 +1,3 @@
-version: "3.8"
-
 volumes:
   esdata01:
     driver: local
@@ -32,6 +30,12 @@ services:
         hard: -1
     networks:
       - elastic
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
 
   kibana:
     image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
@@ -45,11 +49,19 @@ services:
       - ELASTICSEARCH_HOSTS=http://es01:9200
       - SERVER_HOST=0.0.0.0
       - SERVER_PUBLICBASEURL=http://192.168.178.100:${KIBANA_PORT}
+      - xpack.fleet.agents.elasticsearch.hosts=["http://es01:9200"]
     mem_limit: ${KB_MEM_LIMIT}
     depends_on:
-      - es01
+      es01:
+        condition: service_healthy
     networks:
       - elastic
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 60s
 
   fleet-server:
     image: docker.elastic.co/elastic-agent/elastic-agent:${STACK_VERSION}
@@ -64,9 +76,11 @@ services:
       - FLEET_URL=http://192.168.178.100:${FLEET_PORT}
       - KIBANA_FLEET_SETUP=1
       - KIBANA_FLEET_HOST=http://kibana:5601
+      - FLEET_SERVER_INSECURE=1
     mem_limit: 1g
     depends_on:
-      - es01
-      - kibana
+      kibana:
+        condition: service_healthy
     networks:
       - elastic
+    restart: unless-stopped
