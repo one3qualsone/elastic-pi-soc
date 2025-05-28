@@ -9,6 +9,7 @@ networks:
     driver: bridge
 
 services:
+  # Elasticsearch with security
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     container_name: es01
@@ -41,6 +42,31 @@ services:
       retries: 10
       start_period: 60s
 
+  # Setup container to bootstrap passwords
+  setup:
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    container_name: setup
+    volumes:
+      - esdata01:/usr/share/elasticsearch/data
+    environment:
+      - ELASTIC_PASSWORD=${ELASTIC_PASSWORD}
+      - KIBANA_PASSWORD=${KIBANA_PASSWORD}
+    networks:
+      - elastic
+    depends_on:
+      es01:
+        condition: service_healthy
+    command: >
+      bash -c '
+        echo "Setting kibana_system password";
+        until curl -s -X POST -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" http://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do
+          echo "Waiting for Elasticsearch to be ready...";
+          sleep 10;
+        done;
+        echo "Kibana password set successfully";
+      '
+
+  # Kibana with proper kibana_system user
   kibana:
     image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
     container_name: kibana
@@ -51,8 +77,8 @@ services:
     environment:
       - SERVERNAME=kibana
       - ELASTICSEARCH_HOSTS=http://es01:9200
-      - ELASTICSEARCH_USERNAME=elastic
-      - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+      - ELASTICSEARCH_USERNAME=kibana_system
+      - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
       - SERVER_HOST=0.0.0.0
       - SERVER_PUBLICBASEURL=http://192.168.178.100:${KIBANA_PORT}
       - xpack.fleet.agents.elasticsearch.hosts=["http://es01:9200"]
@@ -61,8 +87,8 @@ services:
       - xpack.reporting.encryptionKey=${ENCRYPTION_KEY}
     mem_limit: ${KB_MEM_LIMIT}
     depends_on:
-      es01:
-        condition: service_healthy
+      setup:
+        condition: service_completed_successfully
     networks:
       - elastic
     healthcheck:
@@ -72,6 +98,7 @@ services:
       retries: 10
       start_period: 60s
 
+  # Fleet Server
   fleet-server:
     image: docker.elastic.co/elastic-agent/elastic-agent:${STACK_VERSION}
     container_name: fleet-server
