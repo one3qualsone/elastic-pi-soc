@@ -3,13 +3,15 @@ version: "3.8"
 volumes:
   esdata01:
     driver: local
+  kibanadata:
+    driver: local
 
 networks:
   elastic:
     driver: bridge
 
 services:
-  # Just Elasticsearch - no security, no SSL
+  # Elasticsearch - working!
   es01:
     image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
     container_name: es01
@@ -23,7 +25,7 @@ services:
       - discovery.type=single-node
       - bootstrap.memory_lock=true
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms1536m -Xmx1536m"  # Half of your 3GB limit
+      - "ES_JAVA_OPTS=-Xms1536m -Xmx1536m"
     mem_limit: ${ES_MEM_LIMIT}
     ulimits:
       memlock:
@@ -32,6 +34,7 @@ services:
     networks:
       - elastic
 
+  # Add Kibana
   kibana:
     image: docker.elastic.co/kibana/kibana:${STACK_VERSION}
     container_name: kibana
