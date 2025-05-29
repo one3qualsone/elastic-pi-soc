@@ -171,7 +171,7 @@ services:
       retries: 20
       start_period: 60s
 
-# Fleet Server with SSL and CA 
+# Fleet Server with SSL
   fleet-server:
     depends_on:
       kibana:
@@ -199,9 +199,9 @@ services:
       - FLEET_SERVER_CERT=/certs/fleet-server/fleet-server.crt
       - FLEET_SERVER_CERT_KEY=/certs/fleet-server/fleet-server.key
       
-      # CA certificate for client connections (THIS IS THE FIX)
+      # CA certificate for client connections
       - FLEET_CA=/certs/ca/ca.crt
-      - FLEET_SERVER_ELASTICSEARCH_CA_TRUSTED_FINGERPRINT=""
+      # REMOVED: FLEET_SERVER_ELASTICSEARCH_CA_TRUSTED_FINGERPRINT="" (this was causing the error)
       
       # Use the service token from Kibana
       - FLEET_SERVER_SERVICE_TOKEN=${FLEET_SERVER_SERVICE_TOKEN}
