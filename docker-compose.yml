@@ -171,7 +171,7 @@ services:
       retries: 20
       start_period: 60s
 
-# Fleet Server with SSL
+# Fleet Server with SSL and CA 
   fleet-server:
     depends_on:
       kibana:
@@ -199,16 +199,18 @@ services:
       - FLEET_SERVER_CERT=/certs/fleet-server/fleet-server.crt
       - FLEET_SERVER_CERT_KEY=/certs/fleet-server/fleet-server.key
       
-      # Use the service token from Kibana (.env file)
-      - FLEET_SERVER_SERVICE_TOKEN=${FLEET_SERVER_SERVICE_TOKEN}
+      # CA certificate for client connections (THIS IS THE FIX)
+      - FLEET_CA=/certs/ca/ca.crt
+      - FLEET_SERVER_ELASTICSEARCH_CA_TRUSTED_FINGERPRINT=""
       
-      # Policy ID from Kibana (.env file)
+      # Use the service token from Kibana
+      - FLEET_SERVER_SERVICE_TOKEN=${FLEET_SERVER_SERVICE_TOKEN}
       - FLEET_SERVER_POLICY_ID=${FLEET_SERVER_POLICY_ID}
       
       # Fleet URL for agents to connect
       - FLEET_URL=https://192.168.178.100:${FLEET_PORT}
       
-      # No automatic setup since we're doing it manually
+      # No automatic setup since we did it manually
       - KIBANA_FLEET_SETUP=0
       
     mem_limit: 500m
