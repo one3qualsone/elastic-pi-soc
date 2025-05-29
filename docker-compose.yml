@@ -109,7 +109,7 @@ services:
       - xpack.security.transport.ssl.verification_mode=certificate
       - xpack.security.authc.api_key.enabled=true
       - xpack.license.self_generated.type=${LICENSE}
-      - "ES_JAVA_OPTS=-Xms1536m -Xmx1536m"
+      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
     mem_limit: ${ES_MEM_LIMIT}
     ulimits:
       memlock:
@@ -151,6 +151,11 @@ services:
       - xpack.encryptedSavedObjects.encryptionKey=${ENCRYPTION_KEY}
       - xpack.security.encryptionKey=${ENCRYPTION_KEY}
       - xpack.reporting.encryptionKey=${ENCRYPTION_KEY}
+      - xpack.fleet.encryptionKey=${ENCRYPTION_KEY}
+      - xpack.reporting.enabled=false
+      - xpack.canvas.enabled=false
+      - xpack.maps.enabled=false
+      - NODE_OPTIONS="--max-old-space-size=1024"
     mem_limit: ${KB_MEM_LIMIT}
     networks:
       - elastic
@@ -191,7 +196,7 @@ services:
       - KIBANA_FLEET_USERNAME=elastic
       - KIBANA_FLEET_PASSWORD=${ELASTIC_PASSWORD}
       - KIBANA_FLEET_CA=/certs/ca/ca.crt
-    mem_limit: 1g
+    mem_limit: 500m
     networks:
       - elastic
     restart: unless-stopped
