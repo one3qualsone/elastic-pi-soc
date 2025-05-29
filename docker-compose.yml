@@ -79,7 +79,7 @@ services:
     networks:
       - elastic
 
-  # Elasticsearch with TLS
+  # Elasticsearch with SSL
   es01:
     depends_on:
       setup:
@@ -123,7 +123,7 @@ services:
       timeout: 10s
       retries: 120
 
-  # Kibana with TLS
+  # Kibana with SSL
   kibana:
     depends_on:
       es01:
@@ -156,17 +156,22 @@ services:
       - xpack.reporting.enabled=false
       - xpack.canvas.enabled=false
       - xpack.maps.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.apm.enabled=false
+      - xpack.uptime.enabled=false
+      - xpack.synthetics.enabled=false
       - NODE_OPTIONS="--max-old-space-size=1024"
     mem_limit: ${KB_MEM_LIMIT}
     networks:
       - elastic
     healthcheck:
-      test: ["CMD-SHELL", "curl -I -s --cacert config/certs/ca/ca.crt https://localhost:5601 | grep -q 'HTTP/1.1 302 Found'"]
-      interval: 10s
-      timeout: 10s
-      retries: 120
+      test: ["CMD-SHELL", "curl -f http://localhost:5601/api/status || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
 
-  # Fleet Server with TLS
+  # Fleet Server with SSL
   fleet-server:
     depends_on:
       kibana:
