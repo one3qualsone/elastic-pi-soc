@@ -149,10 +149,10 @@ services:
       - SERVER_SSL_KEY=config/certs/kibana/kibana.key
       - SERVER_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
       - xpack.fleet.agents.elasticsearch.hosts=["https://es01:9200"]
-      - xpack.encryptedSavedObjects.encryptionKey=${ENCRYPTION_KEY}
-      - xpack.security.encryptionKey=${ENCRYPTION_KEY}
-      - xpack.reporting.encryptionKey=${ENCRYPTION_KEY}
-      - xpack.fleet.encryptionKey=${ENCRYPTION_KEY}
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${ENCRYPTION_KEY}
+      - XPACK_SECURITY_ENCRYPTIONKEY=${ENCRYPTION_KEY}
+      - XPACK_REPORTING_ENCRYPTIONKEY=${ENCRYPTION_KEY}
+      - XPACK_FLEET_ENCRYPTIONKEY=${ENCRYPTION_KEY}
       - xpack.reporting.enabled=false
       - xpack.canvas.enabled=false
       - xpack.maps.enabled=false
