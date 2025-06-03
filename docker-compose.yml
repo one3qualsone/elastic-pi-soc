@@ -69,10 +69,19 @@ services:
         until curl -s --cacert config/certs/ca/ca.crt https://es01:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
         echo "Setting kibana_system password";
         until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
+        echo "Waiting for Kibana to be ready...";
+        until curl -s -k -u "elastic:${ELASTIC_PASSWORD}" https://kibana:5601/api/status | grep -q "available"; do sleep 10; done;
+        echo "Generating Fleet Server service token...";
+        FLEET_TOKEN=$(curl -s -k -X POST "https://kibana:5601/api/fleet/service_tokens" \
+          -H "Content-Type: application/json" \
+          -H "kbn-xsrf: true" \
+          -u "elastic:${ELASTIC_PASSWORD}" | grep -o "\"value\":\"[^\"]*" | cut -d"\"" -f4);
+        echo "$FLEET_TOKEN" > config/certs/fleet-token;
+        echo "Fleet token generated and saved";
         echo "All done!";
       '
     healthcheck:
-      test: ["CMD-SHELL", "[ -f config/certs/es01/es01.crt ]"]
+      test: ["CMD-SHELL", "[ -f config/certs/es01/es01.crt ] && [ -f config/certs/fleet-token ]"]
       interval: 1s
       timeout: 5s
       retries: 120
@@ -208,8 +217,7 @@ services:
       # CA certificate for client connections
       - FLEET_CA=/certs/ca/ca.crt
       
-      # Use the service token from Kibana
-      - FLEET_SERVER_SERVICE_TOKEN=${FLEET_SERVER_SERVICE_TOKEN}
+      # Fleet Server policy
       - FLEET_SERVER_POLICY_ID=${FLEET_SERVER_POLICY_ID}
       
       # Fleet URL for agents to connect
@@ -217,7 +225,15 @@ services:
       
       # No automatic setup since we did it manually
       - KIBANA_FLEET_SETUP=0
-      
+    
+    command: >
+      bash -c '
+        echo "Waiting for fleet token...";
+        while [ ! -f /certs/fleet-token ]; do sleep 5; done;
+        export FLEET_SERVER_SERVICE_TOKEN=$(cat /certs/fleet-token);
+        echo "Starting Fleet Server with generated token";
+        /usr/bin/elastic-agent container
+      '
     mem_limit: 500m
     networks:
       - elastic
