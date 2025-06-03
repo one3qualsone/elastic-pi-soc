@@ -69,6 +69,28 @@ services:
         until curl -s --cacert config/certs/ca/ca.crt https://es01:9200 | grep -q "missing authentication credentials"; do sleep 30; done;
         echo "Setting kibana_system password";
         until curl -s -X POST --cacert config/certs/ca/ca.crt -u "elastic:${ELASTIC_PASSWORD}" -H "Content-Type: application/json" https://es01:9200/_security/user/kibana_system/_password -d "{\"password\":\"${KIBANA_PASSWORD}\"}" | grep -q "^{}"; do sleep 10; done;
+        echo "All done!";
+      '
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f config/certs/es01/es01.crt ]"]
+      interval: 1s
+      timeout: 5s
+      retries: 120
+    networks:
+      - elastic
+
+  # Fleet token generator - separate service to avoid dependency issues
+  fleet-setup:
+    depends_on:
+      kibana:
+        condition: service_healthy
+    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
+    container_name: fleet-setup
+    volumes:
+      - certs:/usr/share/elasticsearch/config/certs
+    user: "0"
+    command: >
+      bash -c '
         echo "Waiting for Kibana to be ready...";
         until curl -s -k -u "elastic:${ELASTIC_PASSWORD}" https://kibana:5601/api/status | grep -q "available"; do sleep 10; done;
         echo "Generating Fleet Server service token...";
@@ -78,13 +100,13 @@ services:
           -u "elastic:${ELASTIC_PASSWORD}" | grep -o "\"value\":\"[^\"]*" | cut -d"\"" -f4);
         echo "$FLEET_TOKEN" > config/certs/fleet-token;
         echo "Fleet token generated and saved";
-        echo "All done!";
+        echo "Fleet setup complete!";
       '
     healthcheck:
-      test: ["CMD-SHELL", "[ -f config/certs/es01/es01.crt ] && [ -f config/certs/fleet-token ]"]
-      interval: 1s
+      test: ["CMD-SHELL", "[ -f config/certs/fleet-token ]"]
+      interval: 5s
       timeout: 5s
-      retries: 120
+      retries: 60
     networks:
       - elastic
 
@@ -183,7 +205,7 @@ services:
 # Fleet Server with SSL
   fleet-server:
     depends_on:
-      kibana:
+      fleet-setup:
         condition: service_healthy
     image: docker.elastic.co/elastic-agent/elastic-agent:${STACK_VERSION}
     container_name: fleet-server
@@ -228,8 +250,6 @@ services:
     
     command: >
       bash -c '
-        echo "Waiting for fleet token...";
-        while [ ! -f /certs/fleet-token ]; do sleep 5; done;
         export FLEET_SERVER_SERVICE_TOKEN=$(cat /certs/fleet-token);
         echo "Starting Fleet Server with generated token";
         /usr/bin/elastic-agent container
