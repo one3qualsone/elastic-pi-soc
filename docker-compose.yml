@@ -79,40 +79,6 @@ services:
     networks:
       - elastic
 
-  # Fleet token generator - separate service to avoid dependency issues
-  fleet-setup:
-    depends_on:
-      kibana:
-        condition: service_healthy
-    image: docker.elastic.co/elasticsearch/elasticsearch:${STACK_VERSION}
-    container_name: fleet-setup
-    volumes:
-      - certs:/usr/share/elasticsearch/config/certs
-    user: "0"
-    command: >
-      bash -c '
-        echo "Waiting for Kibana to be ready...";
-        until curl -s -k -u "elastic:${ELASTIC_PASSWORD}" https://kibana:5601/api/status | grep -q "available"; do sleep 10; done;
-        echo "Generating Fleet Server service token...";
-        FLEET_TOKEN=$(curl -s -k -X POST "https://kibana:5601/api/fleet/service_tokens" \
-          -H "Content-Type: application/json" \
-          -H "kbn-xsrf: true" \
-          -u "elastic:${ELASTIC_PASSWORD}" | grep -o "\"value\":\"[^\"]*" | cut -d"\"" -f4);
-        echo "$FLEET_TOKEN" > config/certs/fleet-token;
-        echo "Fleet token generated and saved";
-        echo "Fleet setup complete! Staying alive for dependency...";
-        
-        # Stay running so fleet-server dependency is satisfied
-        while true; do sleep 30; done
-      '
-    healthcheck:
-      test: ["CMD-SHELL", "[ -f config/certs/fleet-token ]"]
-      interval: 5s
-      timeout: 5s
-      retries: 60
-    networks:
-      - elastic
-
   # Elasticsearch with SSL
   es01:
     depends_on:
@@ -205,10 +171,10 @@ services:
       retries: 20
       start_period: 60s
 
-# Fleet Server with SSL
+  # Fleet Server with SSL (start manually after getting token)
   fleet-server:
     depends_on:
-      fleet-setup:
+      kibana:
         condition: service_healthy
     image: docker.elastic.co/elastic-agent/elastic-agent:${STACK_VERSION}
     container_name: fleet-server
@@ -242,22 +208,19 @@ services:
       # CA certificate for client connections
       - FLEET_CA=/certs/ca/ca.crt
       
-      # Fleet Server policy
+      # Use the service token from .env (manually obtained)
+      - FLEET_SERVER_SERVICE_TOKEN=${FLEET_SERVER_SERVICE_TOKEN}
       - FLEET_SERVER_POLICY_ID=${FLEET_SERVER_POLICY_ID}
       
       # Fleet URL for agents to connect
       - FLEET_URL=https://192.168.178.100:${FLEET_PORT}
       
-      # No automatic setup since we did it manually
+      # No automatic setup
       - KIBANA_FLEET_SETUP=0
-    
-    command: >
-      bash -c '
-        export FLEET_SERVER_SERVICE_TOKEN=$(cat /certs/fleet-token);
-        echo "Starting Fleet Server with generated token";
-        /usr/bin/elastic-agent container
-      '
+      
     mem_limit: 500m
     networks:
       - elastic
     restart: unless-stopped
+    profiles:
+      - fleet  # Only start when explicitly requested
