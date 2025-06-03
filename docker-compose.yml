@@ -100,7 +100,10 @@ services:
           -u "elastic:${ELASTIC_PASSWORD}" | grep -o "\"value\":\"[^\"]*" | cut -d"\"" -f4);
         echo "$FLEET_TOKEN" > config/certs/fleet-token;
         echo "Fleet token generated and saved";
-        echo "Fleet setup complete!";
+        echo "Fleet setup complete! Staying alive for dependency...";
+        
+        # Stay running so fleet-server dependency is satisfied
+        while true; do sleep 30; done
       '
     healthcheck:
       test: ["CMD-SHELL", "[ -f config/certs/fleet-token ]"]
