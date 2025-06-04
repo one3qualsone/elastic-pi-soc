@@ -149,10 +149,10 @@ services:
       - SERVER_SSL_KEY=config/certs/kibana/kibana.key
       - SERVER_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
       - xpack.fleet.agents.elasticsearch.hosts=["https://es01:9200"]
-      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${ENCRYPTION_KEY}
-      - XPACK_SECURITY_ENCRYPTIONKEY=${ENCRYPTION_KEY}
-      - XPACK_REPORTING_ENCRYPTIONKEY=${ENCRYPTION_KEY}
-      - XPACK_FLEET_ENCRYPTIONKEY=${ENCRYPTION_KEY}
+      - xpack.encryptedSavedObjects.encryptionKey=${ENCRYPTION_KEY}
+      - xpack.security.encryptionKey=${ENCRYPTION_KEY}
+      - xpack.reporting.encryptionKey=${ENCRYPTION_KEY}
+      - xpack.fleet.encryptionKey=${ENCRYPTION_KEY}
       - xpack.reporting.enabled=false
       - xpack.canvas.enabled=false
       - xpack.maps.enabled=false
@@ -171,7 +171,7 @@ services:
       retries: 20
       start_period: 60s
 
-  # Fleet Server with SSL (start manually after getting token)
+# Fleet Server with SSL
   fleet-server:
     depends_on:
       kibana:
@@ -199,16 +199,6 @@ services:
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
       - ELASTICSEARCH_CA=/certs/ca/ca.crt
-      - ELASTICSEARCH_SSL_ENABLED=true
-      - ELASTICSEARCH_SSL_VERIFICATION_MODE=certificate
-      - ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITIES=/certs/ca/ca.crt
-      
-      # Force all monitoring components to use the same ES config
-      - MONITORING_ELASTICSEARCH_HOSTS=https://es01:9200
-      - MONITORING_ELASTICSEARCH_USERNAME=elastic
-      - MONITORING_ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
-      - MONITORING_ELASTICSEARCH_SSL_ENABLED=true
-      - MONITORING_ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITIES=/certs/ca/ca.crt
       
       # Fleet Server configuration
       - FLEET_SERVER_ENABLE=1
@@ -218,19 +208,17 @@ services:
       # CA certificate for client connections
       - FLEET_CA=/certs/ca/ca.crt
       
-      # Use the service token from .env (manually obtained)
+      # Use the service token from Kibana
       - FLEET_SERVER_SERVICE_TOKEN=${FLEET_SERVER_SERVICE_TOKEN}
       - FLEET_SERVER_POLICY_ID=${FLEET_SERVER_POLICY_ID}
       
       # Fleet URL for agents to connect
       - FLEET_URL=https://192.168.178.100:${FLEET_PORT}
       
-      # No automatic setup
+      # No automatic setup since we did it manually
       - KIBANA_FLEET_SETUP=0
       
     mem_limit: 500m
     networks:
       - elastic
     restart: unless-stopped
-    profiles:
-      - fleet  # Only start when explicitly requested
