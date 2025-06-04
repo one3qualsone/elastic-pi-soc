@@ -203,6 +203,13 @@ services:
       - ELASTICSEARCH_SSL_VERIFICATION_MODE=certificate
       - ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITIES=/certs/ca/ca.crt
       
+      # Force all monitoring components to use the same ES config
+      - MONITORING_ELASTICSEARCH_HOSTS=https://es01:9200
+      - MONITORING_ELASTICSEARCH_USERNAME=elastic
+      - MONITORING_ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
+      - MONITORING_ELASTICSEARCH_SSL_ENABLED=true
+      - MONITORING_ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITIES=/certs/ca/ca.crt
+      
       # Fleet Server configuration
       - FLEET_SERVER_ENABLE=1
       - FLEET_SERVER_CERT=/certs/fleet-server/fleet-server.crt
