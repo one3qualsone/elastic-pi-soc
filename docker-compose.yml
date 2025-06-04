@@ -123,7 +123,7 @@ services:
       timeout: 10s
       retries: 120
 
-  # Kibana with SSL
+  # Kibana with SSL - ONLY CHANGE: Fixed encryption key format
   kibana:
     depends_on:
       es01:
@@ -149,10 +149,11 @@ services:
       - SERVER_SSL_KEY=config/certs/kibana/kibana.key
       - SERVER_SSL_CERTIFICATEAUTHORITIES=config/certs/ca/ca.crt
       - xpack.fleet.agents.elasticsearch.hosts=["https://es01:9200"]
-      - xpack.encryptedSavedObjects.encryptionKey=${ENCRYPTION_KEY}
-      - xpack.security.encryptionKey=${ENCRYPTION_KEY}
-      - xpack.reporting.encryptionKey=${ENCRYPTION_KEY}
-      - xpack.fleet.encryptionKey=${ENCRYPTION_KEY}
+      # FIXED: Correct Kibana encryption key format
+      - XPACK_ENCRYPTEDSAVEDOBJECTS_ENCRYPTIONKEY=${ENCRYPTION_KEY}
+      - XPACK_SECURITY_ENCRYPTIONKEY=${ENCRYPTION_KEY}
+      - XPACK_REPORTING_ENCRYPTIONKEY=${ENCRYPTION_KEY}
+      - XPACK_FLEET_ENCRYPTIONKEY=${ENCRYPTION_KEY}
       - xpack.reporting.enabled=false
       - xpack.canvas.enabled=false
       - xpack.maps.enabled=false
@@ -171,7 +172,7 @@ services:
       retries: 20
       start_period: 60s
 
-# Fleet Server with SSL
+# Fleet Server with SSL (your original working config)
   fleet-server:
     depends_on:
       kibana:
