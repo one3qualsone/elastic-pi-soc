@@ -199,6 +199,9 @@ services:
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
       - ELASTICSEARCH_CA=/certs/ca/ca.crt
+      - ELASTICSEARCH_SSL_ENABLED=true
+      - ELASTICSEARCH_SSL_VERIFICATION_MODE=certificate
+      - ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITIES=/certs/ca/ca.crt
       
       # Fleet Server configuration
       - FLEET_SERVER_ENABLE=1
