@@ -42,21 +42,21 @@ services:
           "      - localhost\n"\
           "    ip:\n"\
           "      - 127.0.0.1\n"\
-          "      - 192.168.178.100\n"\
+          "      - ${RASPBERRY_PI_IP}\n"\
           "  - name: kibana\n"\
           "    dns:\n"\
           "      - kibana\n"\
           "      - localhost\n"\
           "    ip:\n"\
           "      - 127.0.0.1\n"\
-          "      - 192.168.178.100\n"\
+          "      - ${RASPBERRY_PI_IP}\n"\
           "  - name: fleet-server\n"\
           "    dns:\n"\
           "      - fleet-server\n"\
           "      - localhost\n"\
           "    ip:\n"\
           "      - 127.0.0.1\n"\
-          "      - 192.168.178.100\n"\
+          "      - ${RASPBERRY_PI_IP}\n"\
           > config/certs/instances.yml;
           bin/elasticsearch-certutil cert --silent --pem -out config/certs/certs.zip --in config/certs/instances.yml --ca-cert config/certs/ca/ca.crt --ca-key config/certs/ca/ca.key;
           unzip config/certs/certs.zip -d config/certs;
@@ -106,10 +106,10 @@ services:
       - xpack.security.transport.ssl.key=certs/es01/es01.key
       - xpack.security.transport.ssl.certificate=certs/es01/es01.crt
       - xpack.security.transport.ssl.certificate_authorities=certs/ca/ca.crt
-      - xpack.security.transport.ssl.verification_mode=certificate
+      - xpack.security.transport.ssl.verification_mode=${SSL_VERIFICATION_MODE}
       - xpack.security.authc.api_key.enabled=true
       - xpack.license.self_generated.type=${LICENSE}
-      - "ES_JAVA_OPTS=-Xms4g -Xmx4g"
+      - ES_JAVA_OPTS=${ES_JAVA_OPTS}
     mem_limit: ${ES_MEM_LIMIT}
     ulimits:
       memlock:
@@ -141,9 +141,9 @@ services:
       - ELASTICSEARCH_USERNAME=kibana_system
       - ELASTICSEARCH_PASSWORD=${KIBANA_PASSWORD}
       - ELASTICSEARCH_SSL_CERTIFICATEAUTHORITIES=/usr/share/kibana/config/certs/ca/ca.crt
-      - ELASTICSEARCH_SSL_VERIFICATIONMODE=certificate
-      - SERVER_HOST=0.0.0.0
-      - SERVER_PUBLICBASEURL=https://192.168.178.100:${KIBANA_PORT}
+      - ELASTICSEARCH_SSL_VERIFICATIONMODE=${SSL_VERIFICATION_MODE}
+      - SERVER_HOST=${SERVER_HOST}
+      - SERVER_PUBLICBASEURL=https://${RASPBERRY_PI_IP}:${KIBANA_PORT}
       - SERVER_SSL_ENABLED=true
       - SERVER_SSL_CERTIFICATE=config/certs/kibana/kibana.crt
       - SERVER_SSL_KEY=config/certs/kibana/kibana.key
@@ -160,7 +160,7 @@ services:
       - xpack.apm.enabled=false
       - xpack.uptime.enabled=false
       - xpack.synthetics.enabled=false
-      - NODE_OPTIONS="--max-old-space-size=1024"
+      - NODE_OPTIONS=${KIBANA_NODE_OPTIONS}
     mem_limit: ${KB_MEM_LIMIT}
     networks:
       - elastic
@@ -171,7 +171,7 @@ services:
       retries: 20
       start_period: 60s
 
-  # Fleet Server with fixed monitoring configuration
+  # Fleet Server with parameterized configuration
   fleet-server:
     depends_on:
       kibana:
@@ -187,8 +187,8 @@ services:
     environment:
       # Fleet Server configuration
       - FLEET_SERVER_ENABLE=1
-      - FLEET_SERVER_HOST=0.0.0.0
-      - FLEET_SERVER_PORT=8220
+      - FLEET_SERVER_HOST=${FLEET_SERVER_HOST}
+      - FLEET_SERVER_PORT=${FLEET_PORT}
       - FLEET_SERVER_CERT=/certs/fleet-server/fleet-server.crt
       - FLEET_SERVER_CERT_KEY=/certs/fleet-server/fleet-server.key
       - FLEET_CA=/certs/ca/ca.crt
@@ -199,32 +199,32 @@ services:
       - FLEET_SERVER_ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
       - FLEET_SERVER_ELASTICSEARCH_CA=/certs/ca/ca.crt
       
-      # Fix internal monitoring to use correct Elasticsearch endpoint
+      # Internal monitoring configuration
       - ELASTICSEARCH_HOSTS=https://es01:9200
       - ELASTICSEARCH_USERNAME=elastic
       - ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
       - ELASTICSEARCH_SSL_ENABLED=true
       - ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITIES=/certs/ca/ca.crt
-      - ELASTICSEARCH_SSL_VERIFICATION_MODE=certificate
+      - ELASTICSEARCH_SSL_VERIFICATION_MODE=${SSL_VERIFICATION_MODE}
       
-      # Fleet Server service token and policy
+      # Fleet Server tokens and policy
       - FLEET_SERVER_SERVICE_TOKEN=${FLEET_SERVER_SERVICE_TOKEN}
       - FLEET_SERVER_POLICY_ID=${FLEET_SERVER_POLICY_ID}
       
       # Fleet URL for agents to connect
-      - FLEET_URL=https://192.168.178.100:${FLEET_PORT}
+      - FLEET_URL=https://${RASPBERRY_PI_IP}:${FLEET_PORT}
       
-      # Disable automatic setup since we do it manually
-      - KIBANA_FLEET_SETUP=0
+      # Setup configuration
+      - KIBANA_FLEET_SETUP=${KIBANA_FLEET_SETUP}
       
-      # Additional monitoring configuration
-      - ELASTIC_AGENT_MONITORING_ENABLED=true
+      # Agent monitoring configuration
+      - ELASTIC_AGENT_MONITORING_ENABLED=${ELASTIC_AGENT_MONITORING_ENABLED}
       - ELASTIC_AGENT_MONITORING_ELASTICSEARCH_HOSTS=https://es01:9200
       - ELASTIC_AGENT_MONITORING_ELASTICSEARCH_USERNAME=elastic
       - ELASTIC_AGENT_MONITORING_ELASTICSEARCH_PASSWORD=${ELASTIC_PASSWORD}
       - ELASTIC_AGENT_MONITORING_ELASTICSEARCH_SSL_CERTIFICATE_AUTHORITIES=/certs/ca/ca.crt
       
-    mem_limit: 500m
+    mem_limit: ${FLEET_MEM_LIMIT}
     networks:
       - elastic
     restart: unless-stopped
