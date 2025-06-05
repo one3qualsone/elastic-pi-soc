@@ -180,6 +180,7 @@ services:
     container_name: fleet-server
     volumes:
       - certs:/certs
+      - certs:/etc/elastic-agent/certs
     ports:
       - "${FLEET_PORT}:8220"
     user: root
