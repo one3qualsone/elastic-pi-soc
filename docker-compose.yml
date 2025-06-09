@@ -54,7 +54,6 @@ services:
           "    dns:\n"\
           "      - fleet-server\n"\
           "      - localhost\n"\
-          "      - ${CUSTOM_DNS_NAME}\n"\
           "    ip:\n"\
           "      - 127.0.0.1\n"\
           "      - ${RASPBERRY_PI_IP}\n"\
